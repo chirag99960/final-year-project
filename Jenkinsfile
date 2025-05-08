@@ -9,16 +9,16 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Rebuild Image') {
             steps {
-                echo "Building the image using Docker"
-                sh "docker build -t notesapp ."
+                echo "Force rebuilding Docker image with changes"
+                sh "docker build --no-cache -t notesapp ."
             }
         }
 
         stage('Push to Docker Hub') {
             steps {
-                echo "Pushing the image to Docker Hub"
+                echo "Pushing updated image to Docker Hub"
                 script {
                     withCredentials([usernamePassword(
                         credentialsId: 'dockerHub',
@@ -35,23 +35,19 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo "Deploying the application using docker-compose"
+                echo "Redeploying application"
                 script {
                     withCredentials([usernamePassword(
                         credentialsId: 'dockerHub',
                         usernameVariable: 'DOCKER_HUB_USER',
                         passwordVariable: 'DOCKER_HUB_PASS'
                     )]) {
-                        // Replace image in docker-compose.yml with the pushed one
+                        // Force fresh deployment
                         sh """
-                            sed -i 's|build: .|image: \$DOCKER_HUB_USER/notesapp:latest|' docker-compose.yml
+                            docker-compose down --volumes --remove-orphans
+                            docker-compose pull
+                            docker-compose up -d --force-recreate --build
                         """
-
-                        // Shut down existing containers, if any
-                        sh "docker-compose down || true"
-
-                        // Start up using updated docker-compose config
-                        sh "docker-compose pull && docker-compose up -d"
                     }
                 }
             }
@@ -60,10 +56,10 @@ pipeline {
 
     post {
         success {
-            echo "Pipeline executed successfully!"
+            echo "Changes successfully deployed to production!"
         }
         failure {
-            echo "Pipeline failed. Check logs for details."
+            echo "Deployment failed. Check logs for details."
         }
     }
 }
