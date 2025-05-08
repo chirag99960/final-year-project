@@ -1,4 +1,4 @@
-FROM python:3.11-slim  # Changed to 3.11 to match Debian's Python version
+FROM python:3.11-slim  
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends python3-distutils && \
